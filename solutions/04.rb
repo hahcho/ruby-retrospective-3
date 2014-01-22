@@ -1,5 +1,5 @@
 module Asm
-  class Parser
+  class Parser < BasicObject
     INSTRUCTION_SET = [:mov, :inc, :dec, :inc, :cmp, :jmp,
                     :je, :jne, :jg, :jge, :jl, :jle].freeze
 
@@ -8,6 +8,12 @@ module Asm
     def initialize
       @labels = Hash.new{ |hash, key| key }
       @instructions = []
+    end
+
+    def self.parse(&block)
+      parser = Parser.new
+      parser.instance_eval &block
+      [parser.instructions, parser.labels]
     end
 
     def label(name)

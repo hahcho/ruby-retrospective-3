@@ -11,46 +11,46 @@ end
 
 class Criteria < Proc
   def self.status(status)
-    Criteria.new { |arg| arg.status.eql? status }
+    Criteria.new { |task| task.status.eql? status }
   end
 
   def self.priority(priority)
-    Criteria.new { |arg| arg.priority.eql? priority }
+    Criteria.new { |task| task.priority.eql? priority }
   end
 
   def self.tags(tags)
-    Criteria.new { |arg| tags & arg.tags == tags }
+    Criteria.new { |task| tags & task.tags == tags }
   end
 
   def &(other)
-    Criteria.new { |arg| call(arg) and other.call(arg) }
+    Criteria.new { |task| call(task) and other.call(task) }
   end
 
   def |(other)
-    Criteria.new { |arg| call(arg) or other.call(arg) }
+    Criteria.new { |task| call(task) or other.call(task) }
   end
 
   def !
-    Criteria.new { |arg| not call(arg) }
+    Criteria.new { |task| not call(task) }
   end
 end
 
 class TodoList
   include Enumerable
 
-  def self.parse(todos_string)
-    todos = todos_string.split("\n").map do |todo_string|
-      Todo.new(*todo_string.split('|').map(&:strip))
+  def self.parse(text)
+    tasks = text.split("\n").map do |line|
+      Todo.new(*line.split('|').map(&:strip))
     end
-    TodoList.new(todos)
+    TodoList.new(tasks)
   end
 
-  def initialize(todos)
-    @todos = todos
+  def initialize(tasks)
+    @tasks = tasks
   end
 
   def each(&block)
-    @todos.each(&block)
+    @tasks.each(&block)
   end
 
   def filter(criteria)
