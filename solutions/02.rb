@@ -1,21 +1,11 @@
 class Todo
-  include Comparable
+  attr_reader :status, :description, :priority, :tags
 
-  ATTRIBUTES = [:status, :description, :priority, :tags]
-  attr_reader *ATTRIBUTES
-
-  def initialize(task_tokens)
-    @status = task_tokens[0].downcase.to_sym
-    @description = task_tokens[1]
-    @priority = task_tokens[2].downcase.to_sym
-    @tags = task_tokens[3] ? task_tokens[3].split(',').map(&:strip): []
-  end
-
-  def <=>(other)
-    compare_result = ATTRIBUTES.map do |attr|
-      send(attr) <=> other.send(attr)
-    end.find(&:nonzero?)
-    compare_result ? compare_result : 0
+  def initialize(status, description, priority, tags = nil)
+    @status = status.downcase.to_sym
+    @description = description
+    @priority = priority.downcase.to_sym
+    @tags = tags ? tags.split(',').map(&:strip): []
   end
 end
 
@@ -50,7 +40,7 @@ class TodoList
 
   def self.parse(todos_string)
     todos = todos_string.split("\n").map do |todo_string|
-      Todo.new(todo_string.split('|').map(&:strip))
+      Todo.new(*todo_string.split('|').map(&:strip))
     end
     TodoList.new(todos)
   end
