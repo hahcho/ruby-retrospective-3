@@ -1,23 +1,17 @@
 class Integer
   def prime?
-    return false if self <= 1
-    (2...self).all? { |divisor| remainder(divisor).nonzero? }
+    self >= 2 and 2.upto(pred).all? { |n| remainder(n).nonzero? }
   end
 
   def prime_factors
-    number = abs
-    if number.prime?
-        [number]
-    else
-      divisor = (2...number).find { |i| number.remainder(i).zero? }
-      [divisor] + (number / divisor).prime_factors
-    end
+    primes = 2.upto(abs).select(&:prime?)
+    primes.map do |prime|
+      [prime] * abs.downto(0).min_by { |power| abs % prime ** power }
+    end.flatten
   end
 
   def harmonic
-    (1..self).inject(0.to_r) do |harmonic_sum, n|
-      harmonic_sum += Rational(1, n)
-    end
+    1.upto(self).map { |n| 1 / n.to_r }.reduce(:+)
   end
 
   def digits
@@ -27,9 +21,7 @@ end
 
 class Array
   def frequencies
-    frequinces = Hash.new { |hash, key| hash[key] = 0 }
-    each { |n| frequinces[n] += 1 }
-    frequinces
+    each_with_object(Hash.new(0)) { |element, hash| hash[element] += 1 }
   end
 
   def average
@@ -37,22 +29,14 @@ class Array
   end
 
   def drop_every(n)
-    filtered_list = []
-    each_with_index do |item, index|
-      filtered_list << item unless (index + 1).remainder(n).zero?
-    end
-    filtered_list
+    select.with_index { |_, index| index.succ.remainder(n).nonzero? }
   end
 
   def combine_with(other)
-    combined_list = []
-    max_index = self.size > other.size ? self.size : other.size
-
-    (0...max_index).each do |n|
-      combined_list << self[n] if self[n]
-      combined_list << other[n] if other[n]
+    if empty? or other.empty?
+      self | other
+    else
+      take(1) + other.take(1) + drop(1).combine_with(other.drop 1)
     end
-
-    combined_list
   end
 end
