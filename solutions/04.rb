@@ -1,108 +1,89 @@
 module Asm
-  class InstructionExecutorUnit
-    conditional_jumps = {
-      je:   :==,
-      jne:  :!=,
-      jl:   :<,
-      jle:  :<=,
-      jg:   :>,
-      jge:  :>=,
-    }
+  class Parser
+    INSTRUCTION_SET = [:mov, :inc, :dec, :inc, :cmp, :jmp,
+                    :je, :jne, :jg, :jge, :jl, :jle].freeze
 
-    conditional_jumps.each do |instruction_name, operation|
-      define_method instruction_name do |argument|
-        jmp(argument) if get_value(:compare_flag).send(operation, 0)
-      end
-    end
+    attr_reader :instructions, :labels
 
-    def initialize(execution_unit)
-      @execution_unit = execution_unit
-    end
-
-    def mov(destination_register, source)
-      @execution_unit.registers[destination_register] = get_value(source)
-    end
-
-    def inc(destination_register, value)
-      mov destination_register, get_value(destination_register) + get_value(value)
-    end
-
-    def dec(destination_register, value)
-      inc destination_register, -get_value(value)
-    end
-
-    def cmp(register, value)
-      mov :compare_flag, get_value(register) <=> get_value(value)
-    end
-
-    def jmp(label)
-      @execution_unit.instruction_pointer = @execution_unit.labels[label]
-    end
-
-    private
-    def get_value(source)
-      if @execution_unit.registers.include? source
-        @execution_unit.registers[source]
-      else
-        source
-      end
-    end
-  end
-
-  class Parser < BasicObject
-    def initialize(labels, instruction_pipeline)
-      @labels = labels
-      @instruction_pipeline = instruction_pipeline
+    def initialize
+      @labels = Hash.new{ |hash, key| key }
+      @instructions = []
     end
 
     def label(name)
-      @labels[name] = @instruction_pipeline.size
+      @labels[name] = instructions.size
     end
 
     def method_missing(name, *args)
-      if InstructionExecutorUnit.public_method_defined? name
-        @instruction_pipeline << [name, *args]
+      if INSTRUCTION_SET.include? name
+        @instructions << [name, *args]
       else
         name
       end
     end
   end
 
-  class ExecutionUnit
-    attr_reader :labels, :registers
-    attr_accessor :instruction_pointer
+  class Executor < Struct.new(:cpu, :instructions, :labels)
+    JUMPS = {
+      je:   :==,
+      jne:  :!=,
+      jg:   :>,
+      jge:  :>=,
+      jl:   :<,
+      jle:  :<=
+    }.freeze
 
-    def initialize(&block)
-      @labels = {}
-      @instruction_pipeline = []
-      Parser.new(@labels, @instruction_pipeline).instance_eval &block
-      @instruction_executor_unit = InstructionExecutorUnit.new self
-      @registers = {ax: 0, bx: 0, cx: 0, dx: 0, compare_flag: 0}
-      @instruction_pointer = 0
+    JUMPS.each do |jump_name, operation|
+      define_method jump_name do |label|
+        jmp label, (cpu.flag.send operation, 0)
+      end
+    end
+
+    def mov(destination_register, source)
+      cpu[destination_register] = get_value(source)
+    end
+
+    def inc(destination_register, value = 1)
+      cpu[destination_register] += get_value(value)
+    end
+
+    def dec(destination_register, value = 1)
+      cpu[destination_register] -= get_value(value)
+    end
+
+    def cmp(register, value)
+      cpu.flag = cpu[register] <=> get_value(value)
+    end
+
+    def jmp(label, condition = true)
+      cpu.instruction_pointer = labels[label] if condition
     end
 
     def execute_next_instruction
-      @instruction_pointer += 1
-      instruction = @instruction_pipeline[@instruction_pointer.pred]
-      @instruction_executor_unit.public_send *instruction
+      cpu.instruction_pointer += 1
+      send *instructions[cpu.instruction_pointer.pred]
     end
 
-    def finished?
-      @instruction_pipeline.size <= @instruction_pointer
+    def get_value(source)
+        source.is_a?(Symbol) ? cpu[source] : source
     end
+  end
 
-    def execute_program
-      until finished?
-        execute_next_instruction
+  class CPU < Struct.new(:ax, :bx, :cx, :dx, :flag, :instruction_pointer)
+    def self.execute(&block)
+      parser = Parser.new
+      parser.instance_eval &block
+      new(*(Array.new(6, 0))).instance_eval do
+        executor = Executor.new(self, parser.instructions, parser.labels)
+        while parser.instructions.size > instruction_pointer do
+          executor.execute_next_instruction
+        end
+        [ax, bx, cx, dx]
       end
     end
   end
 
   def self.asm(&block)
-    control_flow_unit = ExecutionUnit.new &block
-    control_flow_unit.execute_program
-    [:ax, :bx, :cx, :dx].map do |register_name|
-      control_flow_unit.registers[register_name]
-    end
+    CPU.execute &block
   end
 end
