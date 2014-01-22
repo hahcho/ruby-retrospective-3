@@ -82,4 +82,8 @@ class TodoList
   def tasks_completed
     filter(Criteria.status(:done)).count
   end
+
+  def completed?
+   all? { |task| task.status == :done }
+  end
 end
