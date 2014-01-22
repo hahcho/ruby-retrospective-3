@@ -6,7 +6,7 @@ module Asm
     attr_reader :instructions, :labels
 
     def initialize
-      @labels = Hash.new{ |hash, key| key }
+      @labels = ::Hash.new{ |hash, key| key }
       @instructions = []
     end
 
@@ -77,11 +77,9 @@ module Asm
 
   class CPU < Struct.new(:ax, :bx, :cx, :dx, :flag, :instruction_pointer)
     def self.execute(&block)
-      parser = Parser.new
-      parser.instance_eval &block
       new(*(Array.new(6, 0))).instance_eval do
-        executor = Executor.new(self, parser.instructions, parser.labels)
-        while parser.instructions.size > instruction_pointer do
+        executor = Executor.new(self, *Parser.parse(&block))
+        while executor.instructions.size > instruction_pointer do
           executor.execute_next_instruction
         end
         [ax, bx, cx, dx]
